@@ -219,7 +219,7 @@ done
 # Displaying the result
 if [[ -z ${OUTPUT} ]]
 then
-  echo -e "\n########################################\n# Data extraction from the OVN POD ${cyantext}${OVNPOD}s${resetcolor} for the node ${cyantext}${NODENAME}s${resetcolor}.\n########################################"
+  echo -e "\n########################################\n# Data extraction from the OVN POD ${cyantext}${OVNPOD}${resetcolor} for the node ${cyantext}${NODENAME}${resetcolor}\n########################################"
   case ${DISPLAY} in
     IP)
         echo ${ITEMS_ARRAY} | jq -r '"| PODNAME,| PODIP,| PODMACADDRESS,| STARTTIME,| STOPTIME,|",(.items | sort_by(.podIP) | .[] | "| \(.podName),| \(.podIP),| \(.podMacAddress),| \(.startTime),| \(.stopTime),|")' | column -ts','
