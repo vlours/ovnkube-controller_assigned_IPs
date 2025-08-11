@@ -3,7 +3,7 @@
 # Script       # check_assigned_ips.sh
 # Description  # List the PODs' IPs claim and release from the ovn-controller logs for a specific timeframe
 ##################################################################
-# @VERSION     # 0.1.0
+# @VERSION     # 0.2.0
 ##################################################################
 # Changelog.md # List the modifications in the script.
 # README.md    # Describes the repository usage
@@ -198,7 +198,7 @@ EXTRACTED_DATA=$(${OC} logs -n openshift-ovn-kubernetes ${OVNPOD} -c ovn-control
 
 if [[ -z ${EXTRACTED_DATA} ]]
 then
-  echo -e "Unable to retrieve the desired timeframe from the OVN POD ${cyantext}${OVNPOD}s${resetcolor} for the node ${cyantext}${NODENAME}s${resetcolor}.\nPlease review the timeframe rang."
+  echo -e "Unable to retrieve the desired timeframe from the OVN POD ${cyantext}${OVNPOD}${resetcolor} for the node ${cyantext}${NODENAME}${resetcolor}.\nPlease review the timeframe rang."
   fct_help && exit 10
 fi
 
@@ -208,10 +208,18 @@ for PODDATA in $(echo "${EXTRACTED_DATA}" |  grep "up in Southbound$" | awk -F'|
 do
   PODNAME=$(echo ${PODDATA} | cut -d'|' -f2)
   PODSTART=$(echo ${PODDATA} | cut -d'|' -f1)
-  PODDATA=$(echo "${EXTRACTED_DATA}" | grep "${PODNAME}: Claiming")
-  PODIP=$(echo ${PODDATA} | awk '{print $NF}')
-  PODMAC=$(echo ${PODDATA} | awk '{print $(NF-1)}')
-  PODSTOP=$(echo "${EXTRACTED_DATA}" | grep " ${PODNAME} down in Southbound" | awk -F'|' '{split($1,a," ");if(a[2] != ""){print a[2]}else{print a[1]}}')
+  PODDATA=$(echo "${EXTRACTED_DATA}" | grep -E "${PODNAME}: Claiming [0-9a-f:]{17} ")
+  if [[ ! -z ${PODDATA} ]]
+  then
+    PODIP=$(echo ${PODDATA} | awk '{if($(NF-1) != "Claiming"){print $NF}}')
+    PODMAC=$(echo ${PODDATA} | awk '{if($(NF-1) == "Claiming"){print $NF}else{print $(NF-1)}}')
+  else
+    PODIP=""
+    PODMAC=""
+  fi
+  PODSTOPS=( $(echo "${EXTRACTED_DATA}" | grep " ${PODNAME} down in Southbound" | awk -F'|' '{split($1,a," ");if(a[2] != ""){print a[2]}else{print a[1]}}') )
+  CHECK_EXISTING=$(echo ${ITEMS_ARRAY} | jq -r --arg podname ${PODNAME} '[ .items[] | select(.podName == $podname) ] | length')
+  PODSTOP=${PODSTOPS[${CHECK_EXISTING}]}
   JQ_ARG="{\"podName\":\"${PODNAME}\",\"startTime\":\"${PODSTART}\",\"stopTime\":\"${PODSTOP:-null}\",\"podIP\":\"${PODIP:-null}\",\"podMacAddress\":\"${PODMAC:-null}\"}"
   ITEMS_ARRAY=$(echo ${ITEMS_ARRAY} | jq --argjson p "${JQ_ARG}" '.items += [$p]')
 done
